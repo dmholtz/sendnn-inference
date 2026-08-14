@@ -3,7 +3,6 @@
 
 import pytest
 import torch
-
 from sendnn_inference.v1.sample.spyre_topk_topp_sampler import SpyreTopKTopPSampler
 
 
@@ -75,3 +74,18 @@ class TestSpyreTopKTopPSampler:
         )
 
         sampler.shutdown()
+
+    def test_log_trick(self):
+        """Test that sampling with log noise yields same tokens as regular sampling."""
+        batch_size = 32
+        vocab_size = 10000
+
+        logits = torch.randn(batch_size, vocab_size)
+        probs = logits.softmax(dim=-1, dtype=logits.dtype)
+        noise = torch.empty_like(logits).exponential_()
+        log_noise = torch.log(noise)
+
+        expected_sampled_ids = SpyreTopKTopPSampler._sample_with_predrawn_noise(probs, noise)
+        gumble_sampled_ids = SpyreTopKTopPSampler._sample_with_predrawn_log_noise(logits, log_noise)
+
+        assert torch.all(expected_sampled_ids == gumble_sampled_ids)
