@@ -75,10 +75,8 @@ class SpyreTopKTopPSampler(nn.Module):
         elif self.logprobs_mode == "processed_logprobs":
             logits_to_return = logits.log_softmax(dim=-1, dtype=torch.float32)
 
-        probs = logits.softmax(dim=-1, dtype=torch.float32)
-
-        with self._noise_buffer.borrow_rows(n=probs.shape[0]) as noise:
-            sample_result = SpyreTopKTopPSampler._sample_with_predrawn_noise(probs, noise)
+        with self._noise_buffer.borrow_rows(n=logits.shape[0]) as log_noise:
+            sample_result = SpyreTopKTopPSampler._sample_with_predrawn_noise(logits, log_noise)
 
         return sample_result, logits_to_return
 
@@ -87,6 +85,6 @@ class SpyreTopKTopPSampler(nn.Module):
         self._noise_buffer.shutdown()
 
     @staticmethod
-    def _sample_with_predrawn_noise(probs: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
+    def _sample_with_predrawn_noise(logits: torch.Tensor, log_noise: torch.Tensor) -> torch.Tensor:
         """Sample using pre-drawn exponential noise (no exponential_() call)."""
-        return probs.div(noise).argmax(dim=-1).view(-1)
+        return (logits - log_noise).argmax(dim=-1).view(-1)
